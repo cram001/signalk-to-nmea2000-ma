@@ -50,10 +50,27 @@ Configure: The plugin will now appear in the Plugin Config screen in the Admin U
 Note: Manually linked plugins may need to be re-linked if you update or install other plugins via the Appstore. 
 
 
-Note:
+CERBO GX INSTALLATION:
 
 If you are using CerboGX, you must access the command line interface via a ssh terminal. To do this, enable SSH and set a password. To connect via SSH, login as root, with your CerboGX password.
 
-mkdir: signalk-to-nmea2000-ma
+1. SSH into your Signalk server
+2. Go to the SignalK node modules directory, should be:
+
+        cd ~/.signalk
+        ls
+          # should see: package.json, node_modules/, settings/
+
+4. Remove existing versions of the plugin
+   npm uninstall signalk-to-nmea2000-ma
+   
+5. Install the github fork
+   npm install https://github.com/cram001/signalk-to-nmea2000-ma.git
+   
+6. Restart SignalK from the UI or:
+        sudo systemctl restart signalk
+
+7. Enable the plugin in SignalK (disable the standard signalk-to-nmea2000 add-in)
+
 
 
