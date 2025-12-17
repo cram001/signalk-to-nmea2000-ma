@@ -67,7 +67,7 @@ module.exports = (app, plugin) => {
       context: 'vessels.self',
       properties: {
         engines: {
-          title: 'Engine Mapping',
+          title: 'Engine Mapping, ie: main, engine, 1, 2',
           type: 'array',
           items: {
             type: 'object',
@@ -110,7 +110,7 @@ module.exports = (app, plugin) => {
       context: 'vessels.self',
       properties: {
         engines: {
-          title: 'Engine Mapping',
+          title: 'Engine Mapping, ie: main, engine, 1, 2',
           type: 'array',
           items: {
             type: 'object',
