@@ -63,7 +63,7 @@ module.exports = (app, plugin) => {
               res.push({
                 pgn: 127508,
                 "Battery Instance": battery.instanceId,
-                "Instance": battery.instanceId,
+//                "Instance": battery.instanceId
                 Voltage: voltage,
                 Current: current,
                 Temperature: temperature
@@ -81,11 +81,12 @@ module.exports = (app, plugin) => {
                 pgn: 127506,
                 "DC Instance": battery.instanceId,
                 "DC Type": "Battery",
-                "Instance": battery.instanceId,
+//                "Instance": battery.instanceId
                 'State of Charge': stateOfCharge,
                 'State of Health': stateOfHealth,
                 'Time Remaining': timeRemaining,
-                'Ripple Voltage': ripple
+                'Ripple Voltage': ripple,
+                'Amp Hours': ampHours
               })
             }
             return res
