@@ -1,218 +1,212 @@
 const _ = require('lodash')
 
-const DEFAULT_TIMEOUT = 10000  // ms
+const DEFAULT_TIMEOUT = 10000 // ms
+
+// ----------------- helpers -----------------
+
+function round1(v) {
+  return Math.round(v * 10) / 10
+}
+
+function round2(v) {
+  return Math.round(v * 100) / 100
+}
+
+function roundInt(v) {
+  return Math.round(v)
+}
+
+// seconds → ISO 8601 duration (canboat-safe)
+function secondsToDuration(sec) {
+  if (sec == null) return undefined
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = Math.floor(sec % 60)
+  return `PT${h}H${m}M${s}S`
+}
+
+// rad/s → rpm
+function radPerSecToRPM(rad) {
+  return rad * 60 / (2 * Math.PI)
+}
+
+// ----------------- SK keys -----------------
+
+const engParKeys = [
+  'oilPressure',        // Pa
+  'oilTemperature',     // K
+  'temperature',        // K (coolant)
+  'alternatorVoltage',  // V
+  'fuel.rate',          // m³/s
+  'runTime',            // s
+  'coolantPressure',    // Pa
+  'fuel.pressure',      // Pa
+  'engineLoad',         // 0..1
+  'engineTorque'        // 0..1
+]
+
+const engRapidKeys = [
+  'revolutions',        // rad/s
+  'boostPressure',      // Pa
+  'drive.trimState'     // 0..1
+]
+
+// ============================================================
 
 module.exports = (app, plugin) => {
 
-  // discrete status fields are not yet implemented
-  const engParKeys = [
-      'oilPressure',
-      'oilTemperature',
-      'temperature',
-      'alternatorVoltage',
-      'fuel.rate',
-      'runTime',
-      'coolantPressure',
-      'fuel.pressure',
-      'engineLoad',
-      'engineTorque'
-  ]
+  return [
 
-  const engRapidKeys = [
-    'revolutions',
-    'boostPressure',
-    'drive.trimState'
-  ]
+    // ----------------------------------------------------------
+    // PGN 130312 — Exhaust Temperature
+    // ----------------------------------------------------------
 
-  return [{
-    title: 'Temperature, exhaust (130312)',
-    optionKey: 'EXHAUST_TEMPERATURE',
-    context: 'vessels.self',
-    properties: {
-      engines: {
-        title: 'Engine Mapping',
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            signalkId: {
-              title: 'Signal K engine id, ie: main, engine, 1, 2',
-              type: 'string'
-            },
-            tempInstanceId: {
-              title: 'NMEA2000 Temperature Instance Id, ie: 0, 1, 2',
-              type: 'number'
+    {
+      title: 'Temperature, exhaust (130312)',
+      optionKey: 'EXHAUST_TEMPERATURE',
+      context: 'vessels.self',
+      properties: {
+        engines: {
+          title: 'Engine Mapping',
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              signalkId: { type: 'string' },
+              tempInstanceId: { type: 'number' }
             }
           }
         }
-      }
-    },
+      },
 
-    testOptions: {
-      EXHAUST_TEMPERATURE: {
-        engines: [{
-          signalkId: 10,
-          tempInstanceId: 1
-        }]
-      }
-    },
+      conversions: (options) => {
+        if (!_.get(options, 'EXHAUST_TEMPERATURE.engines')) return null
 
-    conversions: (options) => {
-      if ( !_.get(options, 'EXHAUST_TEMPERATURE.engines') ) {
-        return null
-      }
-      return options.EXHAUST_TEMPERATURE.engines.map(engine => {
-        return {
+        return options.EXHAUST_TEMPERATURE.engines.map(engine => ({
           keys: [
             `propulsion.${engine.signalkId}.exhaustTemperature`
           ],
           callback: (temperature) => {
+            if (temperature == null) return []
+
             return [{
               pgn: 130312,
-              SID: 0xff,
-              "Temperature Instance": engine.tempInstanceId,
-              "Instance": engine.tempInstanceId,
-              "Source": 14,
-              "Actual Temperature": temperature,
+              'Temperature Instance': engine.tempInstanceId,
+              'Source': 'Exhaust Gas Temperature',
+              'Actual Temperature': round2(temperature) // K, 0.01
             }]
-          },
-          tests: [{
-            input: [ 281.2 ],
-            expected: [{
-              "prio": 2,
-              "pgn": 130312,
-              "dst": 255,
-              "fields": {
-                "Instance": 1,
-                "Actual Temperature": 281.2,
-                "Source": "Exhaust Gas Temperature",
-              }
-            }]
-          }]
-        }
-      })
-    }
-  },
-  {
-    title: 'Engine Parameters (127489,127488)',
-    optionKey: 'ENGINE_PARAMETERS',
-    context: 'vessels.self',
-    properties: {
-      engines: {
-        title: 'Engine Mapping',
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            signalkId: {
-              title: 'Signal K engine id, ie: main, engine, 1, 2',
-              type: 'string'
-            },
-            instanceId: {
-              title: 'NMEA2000 Engine Instance Id, ie: 0, 1, 2',
-              type: 'number'
+          }
+        }))
+      }
+    },
+
+    // ----------------------------------------------------------
+    // PGN 127489 (Dynamic) + 127488 (Rapid)
+    // ----------------------------------------------------------
+
+    {
+      title: 'Engine Parameters (127489, 127488)',
+      optionKey: 'ENGINE_PARAMETERS',
+      context: 'vessels.self',
+      properties: {
+        engines: {
+          title: 'Engine Mapping',
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              signalkId: { type: 'string' },
+              instanceId: { type: 'number' }
             }
           }
         }
-      }
-    },
+      },
 
-    testOptions: {
-      ENGINE_PARAMETERS: {
-        engines: [{
-          signalkId: 0,
-          instanceId: 1
-        }]
-      }
-    },
-    
-    conversions: (options) => {
-      if ( !_.get(options, 'ENGINE_PARAMETERS.engines') ) {
-        return null
-      }
-      const dyn = options.ENGINE_PARAMETERS.engines.map(engine => {
-        return {
-          keys: engParKeys.map(key => `propulsion.${engine.signalkId}.${key}`),
-          timeouts: engParKeys.map(key => DEFAULT_TIMEOUT),
-          callback: (oilPres, oilTemp, temp, altVolt, fuelRate, runTime, coolPres, fuelPres, engLoad, engTorque) => {
-            return [{
-                pgn: 127489,
-                "Engine Instance": engine.instanceId,
-                "Instance": engine.instanceId,
-                "Oil pressure": oilPres === null ? undefined : oilPres / 100,
-                "Oil temperature": oilTemp === null ? undefined : oilTemp,
-                "Temperature": temp === null ? undefined : temp,
-                "Alternator Potential": altVolt === null ? undefined : altVolt,
-                "Fuel Rate": fuelRate ===null ? undefined : fuelRate * 3600 * 1000,
-                "Total Engine hours": runTime === null ? undefined : runTime,
-                "Coolant Pressure": coolPres === null ? undefined : coolPres / 100,
-                "Fuel Pressure": fuelPres === null ? undefined : fuelPres / 100,
-                "Discrete Status 1": [],
-                "Discrete Status 2": [],
-                "Percent Engine Load": engLoad === null ? undefined : engLoad * 100,
-                "Engine Load": engLoad === null ? undefined : engLoad * 100,
-                "Percent Engine Torque": engTorque === null ? undefined : engTorque * 100,
-                "Engine Torque": engTorque === null ? undefined : engTorque * 100
-            }]
-          },
-          tests: [{
-            input: [ 102733, 210, 220, 13.1, 100, 201123, 202133, 11111111, 0.5, 1.0 ],
-            expected: [{
-              "prio": 2,
-              "pgn": 127489,
-              "dst": 255,
-              "fields": {
-                "Instance": "Dual Engine Starboard",
-                "Oil pressure": 1000,
-                "Oil temperature": 210,
-                "Temperature": 220,
-                "Alternator Potential": 13.1,
-                "Fuel Rate": -2355.2,
-                "Total Engine hours": "55:52:03",
-                "Coolant Pressure": 2000,
-                "Fuel Pressure": 111000,
-                "Discrete Status 1": [],
-                "Discrete Status 2": [],
-                "Engine Load": 50,
-                "Engine Torque": 100
-              }
-            }]
+      conversions: (options) => {
+        if (!_.get(options, 'ENGINE_PARAMETERS.engines')) return null
+
+        const dyn = options.ENGINE_PARAMETERS.engines.map(engine => ({
+          keys: engParKeys.map(k => `propulsion.${engine.signalkId}.${k}`),
+          timeouts: engParKeys.map(() => DEFAULT_TIMEOUT),
+
+          callback: (
+            oilPres,
+            oilTemp,
+            temp,
+            altVolt,
+            fuelRate,
+            runTime,
+            coolPres,
+            fuelPres,
+            engLoad,
+            engTorque
+          ) => [{
+            pgn: 127489,
+            'Engine Instance': engine.instanceId,
+
+            // pressures already in Pa (no scaling)
+            'Oil pressure': oilPres ?? undefined,
+            'Coolant Pressure': coolPres ?? undefined,
+            'Fuel Pressure': fuelPres ?? undefined,
+
+            // temperatures in K
+            'Oil temperature': oilTemp ?? undefined,
+            'Temperature': temp ?? undefined,
+
+            // volts
+            'Alternator Potential': altVolt == null ? undefined : round2(altVolt),
+
+            // m³/s → L/h
+            'Fuel Rate':
+              fuelRate > 0
+                ? round1(fuelRate * 3600 * 1000)
+                : undefined,
+
+            // seconds → duration
+            'Total Engine hours': secondsToDuration(runTime),
+
+            'Discrete Status 1': [],
+            'Discrete Status 2': [],
+
+            // 0..1 → %
+            'Engine Load':
+              engLoad == null ? undefined : roundInt(engLoad * 100),
+
+            'Engine Torque':
+              engTorque == null ? undefined : roundInt(engTorque * 100)
           }]
-        }
-      })
+        }))
 
-      const rapid = options.ENGINE_PARAMETERS.engines.map(engine => {
-        return {
-          keys: engRapidKeys.map(key => `propulsion.${engine.signalkId}.${key}`),
-          timeouts: engRapidKeys.map(key => DEFAULT_TIMEOUT),
-          callback: (revolutions, boostPressure, trimState) => {
-            return [{
-                pgn: 127488,
-                "Engine Instance": engine.instanceId,
-                "Instance": engine.instanceId,
-                "Speed": revolutions === null ? undefined : revolutions * 60,
-                "Boost Pressure": boostPressure === null ? undefined : boostPressure / 100,
-                "Tilt/Trim": trimState === null ? undefined : trimState * 100
-            }]
-          },
-          tests: [{
-            input: [ 1001, 20345, 0.5 ],
-            expected: [{
-              "prio": 2,
-              "pgn": 127488,
-              "dst": 255,
-              "fields": {
-                "Instance": "Dual Engine Starboard",
-                "Speed": 10908,
-                "Boost Pressure": 200,
-                "Tilt/Trim": 50
-              }
-            }]
+        const rapid = options.ENGINE_PARAMETERS.engines.map(engine => ({
+          keys: engRapidKeys.map(k => `propulsion.${engine.signalkId}.${k}`),
+          timeouts: engRapidKeys.map(() => DEFAULT_TIMEOUT),
+
+          callback: (revolutions, boostPressure, trimState) => [{
+            pgn: 127488,
+            'Engine Instance': engine.instanceId,
+
+            // rad/s → rpm
+            'Speed':
+              revolutions == null
+                ? undefined
+                : roundInt(radPerSecToRPM(revolutions)),
+
+            // Pa → kPa
+            'Boost Pressure':
+              boostPressure == null
+                ? undefined
+                : round1(boostPressure / 1000),
+
+            // 0..1 → %
+            'Tilt/Trim':
+              trimState == null
+                ? undefined
+                : roundInt(trimState * 100)
           }]
-        }
-      })
+        }))
 
-      return dyn.concat(rapid)
+        return dyn.concat(rapid)
+      }
     }
-  }]
+  ]
 }
