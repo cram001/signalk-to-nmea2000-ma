@@ -9,9 +9,10 @@ module.exports = (app, plugin) => {
     'capacity.stateOfCharge',
     'capacity.timeRemaining',
     'capacity.stateOfHealth',
-    'ripple'
+    'ripple',
+    'ampHours'
   ]
-
+  
 function round1(value) {
   return Math.round(value * 10) / 10
 }
@@ -48,11 +49,11 @@ function secondsToDuration(sec) {
           type: 'object',
           properties: {
             signalkId: {
-              title: 'Signal K battery id',
+              title: 'Signal K battery id, ie: 290',
               type: 'string'
             },
             instanceId: {
-              title: 'NMEA2000 Battery Instance Id',
+              title: 'NMEA2000 Instance Id, ie: 0, 1, 2, 3',
               type: 'number'
             }
           }
