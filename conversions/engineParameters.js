@@ -1,6 +1,6 @@
 const _ = require('lodash')
 
-const DEFAULT_TIMEOUT = 10000 // ms
+const DEFAULT_TIMEOUT = 5000 // ms
 
 // ----------------- helpers -----------------
 
@@ -78,7 +78,7 @@ module.exports = (app, plugin) => {
           }
         }
       },
-
+      
       conversions: (options) => {
         if (!_.get(options, 'EXHAUST_TEMPERATURE.engines')) return null
 
