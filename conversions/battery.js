@@ -11,6 +11,18 @@ module.exports = (app, plugin) => {
     'capacity.stateOfHealth',
     'ripple'
   ]
+
+function round1(value) {
+  return Math.round(value * 10) / 10
+}
+
+  function round2(value) {
+  return Math.round(value * 100) / 100
+}
+
+function roundInt(value) {
+  return Math.round(value)
+}
   
   return {
     title: 'Battery (127506 & 127508)',
@@ -64,9 +76,9 @@ module.exports = (app, plugin) => {
                 pgn: 127508,
                 "Battery Instance": battery.instanceId,
 //                "Instance": battery.instanceId
-                Voltage: voltage,
-                Current: current,
-                Temperature: temperature
+                Voltage: round2(voltage),
+                Current: round1(current),
+                Temperature: round2(temperature)
               })
             }
             
@@ -86,7 +98,7 @@ module.exports = (app, plugin) => {
                 'State of Health': stateOfHealth,
                 'Time Remaining': timeRemaining,
                 'Ripple Voltage': ripple,
-                'Amp Hours': ampHours
+                'Amp Hours': roundInt(ampHours)
               })
             }
             return res
