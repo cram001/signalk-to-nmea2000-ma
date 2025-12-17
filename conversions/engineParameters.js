@@ -36,11 +36,11 @@ module.exports = (app, plugin) => {
           type: 'object',
           properties: {
             signalkId: {
-              title: 'Signal K engine id',
+              title: 'Signal K engine id, ie: main, engine, 1, 2',
               type: 'string'
             },
             tempInstanceId: {
-              title: 'NMEA2000 Temperature Instance Id',
+              title: 'NMEA2000 Temperature Instance Id, ie: 0, 1, 2',
               type: 'number'
             }
           }
@@ -105,11 +105,11 @@ module.exports = (app, plugin) => {
           type: 'object',
           properties: {
             signalkId: {
-              title: 'Signal K engine id',
+              title: 'Signal K engine id, ie: main, engine, 1, 2',
               type: 'string'
             },
             instanceId: {
-              title: 'NMEA2000 Engine Instance Id',
+              title: 'NMEA2000 Engine Instance Id, ie: 0, 1, 2',
               type: 'number'
             }
           }
