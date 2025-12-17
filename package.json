@@ -1,11 +1,11 @@
 {
-  "name": "signalk-to-nmea2000",
-  "version": "2.23.1",
-  "description": "Signal K server plugin to convert Signal K to NMEA2000",
+  "name": "signalk-to-nmea2000 - modified",
+  "version": "2.23.1.1",
+  "description": "Signal K server plugin to convert Signal K to NMEA2000 (Marc A edits)",
   "main": "index.js",
   "scripts": {
     "test": "mocha --timeout 10000",
-    "create-release": "github-create-release --owner signalk --repository signalk-to-nmea2000",
+    "create-release": "github-create-release --owner signalk --repository signalk-to-nmea2000-ma",
     "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
   },
   "keywords": [
@@ -17,7 +17,7 @@
   },
   "contributors": [
     {
-      "name": "Teppo Kurki"
+      "name": "Marc Archambault"
     }
   ],
   "license": "ISC",
@@ -28,7 +28,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SignalK/signalk-to-nmea2000"
+    "url": "https://github.com/cram001/signalk-to-nmea2000-ma"
   },
   "devDependencies": {
     "@canboat/canboatjs": "^3.x",
