@@ -59,18 +59,21 @@ If you are using CerboGX, you must access the command line interface via a ssh t
 
         cd ~/.signalk
         ls
-          # should see: package.json, node_modules/, settings/
+        # should see: package.json, node_modules/, settings/
 
 4. Remove existing versions of the plugin
-   npm uninstall signalk-to-nmea2000-ma
    
-5. Install the github fork
-   npm install https://github.com/cram001/signalk-to-nmea2000-ma.git
+        npm uninstall signalk-to-nmea2000-ma
    
-6. Restart SignalK from the UI or:
+6. Install the github fork
+   
+        npm install https://github.com/cram001/signalk-to-nmea2000-ma.git
+   
+8. Restart SignalK from the UI or:
+   
         sudo systemctl restart signalk
 
-7. Enable the plugin in SignalK (disable the standard signalk-to-nmea2000 add-in)
+10. Enable the plugin in SignalK (disable the standard signalk-to-nmea2000 add-in)
 
 
 
