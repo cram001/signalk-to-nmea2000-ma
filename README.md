@@ -1,5 +1,11 @@
 # signalk-to-nmea2000 (marc edits)
 
+Note: many corrections made to ensure the conversions are compliant with canboat
+
+https://github.com/canboat/canboat/blob/master/docs/canboat.json
+
+
+
 [![Greenkeeper badge](https://badges.greenkeeper.io/sbender9/signalk-to-nmea2000.svg)](https://greenkeeper.io/)
 
 This is an edit of the standard Signalk Plugin to convert Signal K to NMEA2000.
