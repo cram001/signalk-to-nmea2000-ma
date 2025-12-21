@@ -1,14 +1,18 @@
 const _ = require('lodash')
 
-const BATTERY_STATUS_INTERVAL_MS = 1000   // 1 Hz → PGN 127508
-const DC_STATUS_INTERVAL_MS      = 1000   // 1 Hz → PGN 127506
+// ----------------- rounding helpers -----------------
 
-// ----------------- helpers -----------------
+function roundVoltage(v) {
+  return Math.round(v * 100) / 100      // 0.01 V
+}
 
-function round1(v) { return Math.round(v * 10) / 10 }
-function round2(v) { return Math.round(v * 100) / 100 }
-function round3(v) { return Math.round(v * 1000) / 1000 }
-function roundInt(v) { return Math.round(v) }
+function roundCurrent(a) {
+  return Math.round(a * 10) / 10         // 0.1 A
+}
+
+function roundTempK(t) {
+  return Math.round(t * 10) / 10         // 0.1 K
+}
 
 // seconds → ISO 8601 duration (canboat-safe)
 function secondsToDuration(sec) {
@@ -19,14 +23,26 @@ function secondsToDuration(sec) {
   return `PT${h}H${m}M${s}S`
 }
 
-// ============================================================
+// ===================================================
 
 module.exports = (app, plugin) => {
+
+  const batteryKeys = [
+    'voltage',
+    'current',
+    'temperature',
+    'capacity.stateOfCharge',
+    'capacity.timeRemaining',
+    'capacity.stateOfHealth',
+    'ripple',
+    'ampHours'
+  ]
 
   return {
     title: 'Battery (127508 @ 1Hz, 127506 @ 1Hz)',
     optionKey: 'BATTERYv2',
     context: 'vessels.self',
+
     properties: {
       batteries: {
         title: 'Battery Mapping',
@@ -42,79 +58,103 @@ module.exports = (app, plugin) => {
     },
 
     conversions: (options) => {
-      if (!_.get(options, 'BATTERYv2.batteries')) return null
+      if (!_.get(options, 'BATTERYv2.batteries')) {
+        return null
+      }
 
-      options.BATTERYv2.batteries.forEach(battery => {
-        const base = `electrical.batteries.${battery.signalkId}`
+      return options.BATTERYv2.batteries.map(battery => {
 
-        // ------------------------------------------------------
-        // PGN 127508 — Battery Status (Voltage / Current / Temp)
-        // ------------------------------------------------------
-        setInterval(() => {
-          const voltage     = app.getSelfPath(`${base}.voltage`)
-          const current     = app.getSelfPath(`${base}.current`)
-          const temperature = app.getSelfPath(`${base}.temperature`)
+        return {
+          keys: batteryKeys.map(
+            k => `electrical.batteries.${battery.signalkId}.${k}`
+          ),
 
-          // Raymarine guard: require at least voltage
-          if (typeof voltage !== 'number' || !isFinite(voltage)) {
-            return
+          timeouts: batteryKeys.map(() => 60000),
+
+          callback: (
+            voltage,
+            current,
+            temperature,
+            soc,
+            timeRemaining,
+            soh,
+            ripple,
+            ampHours
+          ) => {
+
+            const out = []
+
+            // ------------------------------------------------
+            // PGN 127508 — Battery Status
+            // ------------------------------------------------
+            if (
+              voltage != null ||
+              current != null ||
+              temperature != null
+            ) {
+              out.push({
+                pgn: 127508,
+                'Battery Instance': battery.instanceId,
+
+                Voltage:
+                  voltage == null
+                    ? undefined
+                    : roundVoltage(voltage),
+
+                Current:
+                  current == null
+                    ? undefined
+                    : roundCurrent(current),
+
+                Temperature:
+                  temperature == null
+                    ? undefined
+                    : roundTempK(temperature)
+              })
+            }
+
+            // ------------------------------------------------
+            // PGN 127506 — DC Detailed Status
+            // ------------------------------------------------
+            if (
+              soc != null ||
+              timeRemaining != null ||
+              soh != null ||
+              ripple != null ||
+              ampHours != null
+            ) {
+              out.push({
+                pgn: 127506,
+                'DC Instance': battery.instanceId,
+                'DC Type': 'Battery',
+
+                'State of Charge':
+                  soc == null ? undefined : Math.round(soc * 100),
+
+                'State of Health':
+                  soh == null ? undefined : Math.round(soh * 100),
+
+                'Time Remaining':
+                  timeRemaining == null
+                    ? undefined
+                    : secondsToDuration(timeRemaining),
+
+                'Ripple Voltage':
+                  ripple == null
+                    ? undefined
+                    : roundVoltage(ripple),
+
+                'Amp Hours':
+                  ampHours == null
+                    ? undefined
+                    : Math.round(ampHours)
+              })
+            }
+
+            return out
           }
-
-          plugin.emit('nmea2000JsonOut', {
-            pgn: 127508,
-            'Battery Instance': battery.instanceId,
-            Voltage: round2(voltage),
-            Current: current == null ? undefined : round1(current),
-            Temperature: temperature == null ? undefined : round2(temperature)
-          })
-        }, BATTERY_STATUS_INTERVAL_MS)
-
-        // ------------------------------------------------------
-        // PGN 127506 — DC Detailed Status
-        // ------------------------------------------------------
-        setInterval(() => {
-          const soc   = app.getSelfPath(`${base}.capacity.stateOfCharge`)
-          const tr    = app.getSelfPath(`${base}.capacity.timeRemaining`)
-          const soh   = app.getSelfPath(`${base}.capacity.stateOfHealth`)
-          const ripple= app.getSelfPath(`${base}.ripple`)
-          const ah    = app.getSelfPath(`${base}.ampHours`)
-
-          // Nothing meaningful to send
-          if (
-            soc == null &&
-            tr == null &&
-            soh == null &&
-            ripple == null &&
-            ah == null
-          ) {
-            return
-          }
-
-          plugin.emit('nmea2000JsonOut', {
-            pgn: 127506,
-            'DC Instance': battery.instanceId,
-            'DC Type': 'Battery',
-
-            'State of Charge':
-              soc == null ? undefined : roundInt(soc * 100),
-
-            'State of Health':
-              soh == null ? undefined : roundInt(soh * 100),
-
-            'Time Remaining':
-              tr == null ? undefined : secondsToDuration(tr),
-
-            'Ripple Voltage':
-              ripple == null ? undefined : round3(ripple),
-
-            'Amp Hours':
-              ah == null ? undefined : roundInt(ah)
-          })
-        }, DC_STATUS_INTERVAL_MS)
+        }
       })
-
-      // No event-driven conversions
-      return []
     }
   }
 }
