@@ -22,7 +22,7 @@ function secondsToDuration(sec) {
   return `PT${h}H${m}M${s}S`
 }
 
-// rad/s → RPM (Signal K uses rad/s)
+// rad/s → RPM (Signal K uses rad/s in many feeds; if yours is Hz or RPM, adjust)
 function radPerSecToRPM(rad) {
   return rad * 60 / (2 * Math.PI)
 }
@@ -53,7 +53,7 @@ module.exports = (app, plugin) => {
             type: 'object',
             properties: {
               signalkId:  { type: 'string' },
-              instanceId:{ type: 'number' }
+              instanceId: { type: 'number' }
             }
           }
         }
@@ -80,6 +80,7 @@ module.exports = (app, plugin) => {
             app.emit('nmea2000JsonOut', {
               pgn: 127488,
               'Engine Instance': engine.instanceId,
+              // PGN expects RPM
               'Speed': roundInt(radPerSecToRPM(radPerSec))
             })
           }, RAPID_INTERVAL_MS))
@@ -93,54 +94,65 @@ module.exports = (app, plugin) => {
 
             const base = `propulsion.${engine.signalkId}`
 
-            const oilPres   = app.getSelfPath(`${base}.oilPressure`)
-            const oilTemp   = app.getSelfPath(`${base}.oilTemperature`)
-            const coolantT  = app.getSelfPath(`${base}.temperature`)
+            const oilPresPa = app.getSelfPath(`${base}.oilPressure`)
+            const oilTempK  = app.getSelfPath(`${base}.oilTemperature`)
+            const coolantK  = app.getSelfPath(`${base}.temperature`)
             const altVolt   = app.getSelfPath(`${base}.alternatorVoltage`)
-            const fuelRate  = app.getSelfPath(`${base}.fuel.rate`)
-            const runTime   = app.getSelfPath(`${base}.runTime`)
-            const coolPres  = app.getSelfPath(`${base}.coolantPressure`)
-            const fuelPres  = app.getSelfPath(`${base}.fuel.pressure`)
-            const engLoad   = app.getSelfPath(`${base}.engineLoad`)
-            const engTorque = app.getSelfPath(`${base}.engineTorque`)
+            const fuelRate  = app.getSelfPath(`${base}.fuel.rate`)         // m³/s (Signal K)
+            const runTimeS  = app.getSelfPath(`${base}.runTime`)           // seconds (Signal K)
+            const coolPresPa= app.getSelfPath(`${base}.coolantPressure`)
+            const fuelPresPa= app.getSelfPath(`${base}.fuel.pressure`)
+            const engLoad   = app.getSelfPath(`${base}.engineLoad`)        // 0..1
+            const engTorque = app.getSelfPath(`${base}.engineTorque`)      // 0..1
+
+            // Pressures: Signal K uses Pa; PGN 127489 uses kPa in canboat JSON
+            const oilPresKpa  = (typeof oilPresPa === 'number' && isFinite(oilPresPa)) ? oilPresPa / 1000 : undefined
+            const coolPresKpa = (typeof coolPresPa === 'number' && isFinite(coolPresPa)) ? coolPresPa / 1000 : undefined
+            const fuelPresKpa = (typeof fuelPresPa === 'number' && isFinite(fuelPresPa)) ? fuelPresPa / 1000 : undefined
 
             app.emit('nmea2000JsonOut', {
               pgn: 127489,
               'Engine Instance': engine.instanceId,
 
-              // Pressures
-              'Oil pressure':        oilPres   ?? undefined,
-              'Coolant Pressure':    coolPres  ?? undefined,
-              'Fuel Pressure':       fuelPres  ?? undefined,
+              // Pressures (kPa)
+              'Oil pressure':     oilPresKpa  == null ? undefined : round1(oilPresKpa),
+              'Coolant Pressure': coolPresKpa == null ? undefined : round1(coolPresKpa),
+              'Fuel Pressure':    fuelPresKpa == null ? undefined : round1(fuelPresKpa),
 
-              // Temperatures (Kelvin expected by canboat)
-              'Oil temperature':     oilTemp   ?? undefined,
-              'Temperature':         coolantT  ?? undefined,
+              // Temperatures (Kelvin)
+              'Oil temperature':  (typeof oilTempK === 'number' && isFinite(oilTempK)) ? round1(oilTempK) : undefined,
+              'Temperature':      (typeof coolantK === 'number' && isFinite(coolantK)) ? round1(coolantK) : undefined,
 
               // Electrical
               'Alternator Potential':
-                altVolt == null ? undefined : round2(altVolt),
+                (typeof altVolt === 'number' && isFinite(altVolt)) ? round2(altVolt) : undefined,
 
               // Fuel rate (m³/s → L/h)
               'Fuel Rate':
-                fuelRate > 0
+                (typeof fuelRate === 'number' && isFinite(fuelRate) && fuelRate > 0)
                   ? round1(fuelRate * 3600 * 1000)
                   : undefined,
 
-              // Runtime
+              // Runtime (canboat-safe duration)
               'Total Engine hours':
-                runTime == null ? undefined : secondsToDuration(runTime),
+                (typeof runTimeS === 'number' && isFinite(runTimeS) && runTimeS >= 0)
+                  ? secondsToDuration(runTimeS)
+                  : undefined,
 
               // Status (unused for now)
               'Discrete Status 1': [],
               'Discrete Status 2': [],
 
-              // Load / torque (percent)
+              // Load / torque (%)
               'Engine Load':
-                engLoad == null ? undefined : roundInt(engLoad * 100),
+                (typeof engLoad === 'number' && isFinite(engLoad))
+                  ? roundInt(engLoad * 100)
+                  : undefined,
 
               'Engine Torque':
-                engTorque == null ? undefined : roundInt(engTorque * 100)
+                (typeof engTorque === 'number' && isFinite(engTorque))
+                  ? roundInt(engTorque * 100)
+                  : undefined
             })
 
           }, DYNAMIC_INTERVAL_MS))
