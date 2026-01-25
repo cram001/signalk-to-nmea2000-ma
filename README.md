@@ -1,8 +1,17 @@
+
+
+
 # signalk-to-nmea2000 (marc edits)
 
 Note: many corrections made to ensure the conversions are compliant with canboat
 
 https://github.com/canboat/canboat/blob/master/docs/canboat.json
+
+For the cerbogx, replace the conversion scripts as required here:
+
+/usr/lib/node_modules/signalk-server/node_modules/signalk-to-nmea2000/conversions
+
+edited scripts will be erased when a new firmware is installed, keep a backup!
 
 
 
