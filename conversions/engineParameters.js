@@ -1,212 +1,224 @@
-const _ = require('lodash')
-
-// -----------------------------------------------------------------------------
-// Timing (per NMEA 2000 expectations)
-// -----------------------------------------------------------------------------
-const RAPID_INTERVAL_MS   = 250   // PGN 127488 ≈ 4 Hz
-const DYNAMIC_INTERVAL_MS = 1000  // PGN 127489 ≈ 1 Hz
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-function present(v) {
-  return v !== null && v !== undefined && Number.isFinite(v)
-}
-
-// rate limiter per engine + PGN
-const lastSent = {
-  rapid:   new Map(),
-  dynamic: new Map()
-}
-
-function rateLimit(map, key, intervalMs) {
-  const now  = Date.now()
-  const last = map.get(key) || 0
-  if (now - last < intervalMs) return false
-  map.set(key, now)
-  return true
-}
-
-// -----------------------------------------------------------------------------
-// Signal K → NMEA2000
-// -----------------------------------------------------------------------------
-module.exports = (app, plugin) => {
-
-  // Signal K propulsion paths
-  const engParKeys = [
-    'oilPressure',        // Pa
-    'oilTemperature',     // K
-    'temperature',        // K
-    'alternatorVoltage',  // V
-    'fuel.rate',          // m3/s
-    'runTime',            // s
-    'coolantPressure',    // Pa
-    'fuel.pressure',      // Pa
-    'engineLoad',         // ratio 0..1
-    'engineTorque'        // ratio 0..1
-  ]
-
-  const engRapidKeys = [
-    'revolutions',        // rps
-    'boostPressure',      // Pa
-    'drive.trimState'     // ratio
-  ]
-
-  return [
-    /* ---------------------------------------------------------------------- */
-    /* Engine Parameters – Rapid (PGN 127488)                                  */
-    /* ---------------------------------------------------------------------- */
-    {
-      title: 'Engine Parameters, Rapid Update (127488)',
-      optionKey: 'ENGINE_PARAMETERS',
-      context: 'vessels.self',
-
-      properties: {
-        engines: {
-          type: 'array',
-          items: {
-            type: 'object',
-            required: ['signalkId', 'instanceId'],
-            properties: {
-              signalkId:  { type: 'string' },
-              instanceId: { type: 'number' }
-            }
+module.exports = function (app) {
+  return {
+    title: 'Engine Parameters (127488, 127489)',
+    optionKey: 'engineParameters',
+    
+    // Support both rapid and dynamic updates
+    keys: [
+      'propulsion.*.revolutions',        // For rapid update
+      'propulsion.*.boostPressure',      // For rapid update
+      'propulsion.*.oilPressure',        // For dynamic
+      'propulsion.*.oilTemperature',     // For dynamic
+      'propulsion.*.temperature',        // For dynamic
+      'propulsion.*.alternatorVoltage',  // For dynamic
+      'propulsion.*.fuelRate',           // For dynamic
+      'propulsion.*.runTime',            // For dynamic
+      'propulsion.*.coolantPressure',    // For dynamic
+      'propulsion.*.fuelPressure',       // For dynamic
+      'propulsion.*.engineLoad',         // For dynamic
+      'propulsion.*.engineTorque',       // For dynamic
+    ],
+    
+    context: {
+      // Track last transmission times to respect update rates
+      lastRapidUpdate: {},
+      lastDynamicUpdate: {},
+      // Cache for building complete messages
+      engineData: {}
+    },
+    
+    callback: function (path, value, context) {
+      const messages = [];
+      
+      // Parse engine instance from path
+      const pathParts = path.split('.');
+      if (pathParts[0] !== 'propulsion' || pathParts.length < 3) {
+        return messages;
+      }
+      
+      const engineId = pathParts[1];
+      const parameter = pathParts[2];
+      const instance = getEngineInstance(engineId);
+      
+      // Initialize engine data cache
+      if (!context.engineData[engineId]) {
+        context.engineData[engineId] = {};
+      }
+      
+      // Update cached value
+      context.engineData[engineId][parameter] = value;
+      const data = context.engineData[engineId];
+      
+      const now = Date.now();
+      
+      // Generate PGN 127488 - Engine Parameters, Rapid Update (4 Hz)
+      if (parameter === 'revolutions' || parameter === 'boostPressure') {
+        const lastUpdate = context.lastRapidUpdate[engineId] || 0;
+        
+        // Enforce minimum 250ms between rapid updates (4 Hz debouncing)
+        if (now - lastUpdate >= 250) {
+          const rapidMsg = buildRapidUpdate(instance, data);
+          if (rapidMsg) {
+            messages.push(rapidMsg);
+            context.lastRapidUpdate[engineId] = now;
           }
         }
-      },
-
-      conversions: (options) => {
-        const engines = _.get(options, 'ENGINE_PARAMETERS.engines')
-        if (!Array.isArray(engines) || engines.length === 0) return null
-
-        return engines.map(engine => ({
-          keys: engRapidKeys.map(k => `propulsion.${engine.signalkId}.${k}`),
-
-          callback: (revolutions_rps, boostPressurePa, trimStateRatio) => {
-            if (!rateLimit(lastSent.rapid, engine.instanceId, RAPID_INTERVAL_MS)) {
-              return null
-            }
-
-            if (!present(revolutions_rps)) return null
-
-            const msg = {
-              pgn: 127488,
-              instance: engine.instanceId,
-              speed: revolutions_rps * 60   // rps → rpm
-            }
-
-            if (present(boostPressurePa)) {
-              msg.boostPressure = boostPressurePa
-            }
-
-            if (present(trimStateRatio)) {
-              msg.tiltTrim = trimStateRatio * 100
-            }
-
-            return [msg]
-          }
-        }))
       }
-    },
-
-    /* ---------------------------------------------------------------------- */
-    /* Engine Parameters – Dynamic (PGN 127489)                                */
-    /* ---------------------------------------------------------------------- */
-    {
-      title: 'Engine Parameters, Dynamic (127489)',
-      optionKey: 'ENGINE_PARAMETERS',
-      context: 'vessels.self',
-
-      conversions: (options) => {
-        const engines = _.get(options, 'ENGINE_PARAMETERS.engines')
-        if (!Array.isArray(engines) || engines.length === 0) return null
-
-        return engines.map(engine => ({
-          keys: engParKeys.map(k => `propulsion.${engine.signalkId}.${k}`),
-
-          callback: (
-            oilPresPa,
-            oilTempK,
-            tempK,
-            altVoltV,
-            fuelRate_m3ps,
-            runTime_s,
-            coolPresPa,
-            fuelPresPa,
-            engLoadRatio,
-            engTorqueRatio
-          ) => {
-
-            if (!rateLimit(lastSent.dynamic, engine.instanceId, DYNAMIC_INTERVAL_MS)) {
-              return null
-            }
-
-            const msg = {
-              pgn: 127489,
-              instance: engine.instanceId,
-
-              // BITLOOKUP fields MUST be numeric bitmasks
-              discreteStatus1: 0,
-              discreteStatus2: 0
-            }
-
-            let hasData = false
-
-            if (present(oilPresPa)) {
-              msg.oilPressure = oilPresPa
-              hasData = true
-            }
-
-            if (present(oilTempK)) {
-              msg.oilTemperature = oilTempK
-              hasData = true
-            }
-
-            if (present(tempK)) {
-              msg.temperature = tempK
-              hasData = true
-            }
-
-            if (present(altVoltV)) {
-              msg.alternatorPotential = altVoltV
-              hasData = true
-            }
-
-            if (present(fuelRate_m3ps)) {
-              msg.fuelRate = fuelRate_m3ps * 3600 * 1000 // m3/s → L/h
-              hasData = true
-            }
-
-            if (present(runTime_s)) {
-              msg.totalEngineHours = runTime_s   // seconds (per canboat)
-              hasData = true
-            }
-
-            if (present(coolPresPa)) {
-              msg.coolantPressure = coolPresPa
-              hasData = true
-            }
-
-            if (present(fuelPresPa)) {
-              msg.fuelPressure = fuelPresPa
-              hasData = true
-            }
-
-            if (present(engLoadRatio)) {
-              msg.engineLoad = engLoadRatio * 100
-              hasData = true
-            }
-
-            if (present(engTorqueRatio)) {
-              msg.engineTorque = engTorqueRatio * 100
-              hasData = true
-            }
-
-            if (!hasData) return null
-            return [msg]
-          }
-        }))
+      
+      // Generate PGN 127489 - Engine Parameters, Dynamic (1 Hz)
+      const lastDynamicUpdate = context.lastDynamicUpdate[engineId] || 0;
+      
+      // Enforce minimum 1000ms between dynamic updates
+      if (now - lastDynamicUpdate >= 1000) {
+        const dynamicMsg = buildDynamicUpdate(instance, data);
+        if (dynamicMsg) {
+          messages.push(dynamicMsg);
+          context.lastDynamicUpdate[engineId] = now;
+        }
       }
+      
+      return messages;
     }
-  ]
-}
+  };
+  
+  // Helper Functions
+  
+  function getEngineInstance(engineId) {
+    const instanceMap = {
+      'main': 0,
+      'port': 0,
+      'starboard': 1,
+      'center': 1,
+      '0': 0,
+      '1': 1,
+      '2': 2,
+      '3': 3
+    };
+    
+    const numericInstance = parseInt(engineId);
+    if (!isNaN(numericInstance)) {
+      return numericInstance;
+    }
+    
+    return instanceMap[engineId.toLowerCase()] || 0;
+  }
+  
+  function roundRPMToNearest10(rpm) {
+    if (rpm === null || rpm === undefined || isNaN(rpm)) {
+      return null;
+    }
+    // Round to nearest 10 RPM for debouncing
+    return Math.round(rpm / 10) * 10;
+  }
+  
+  function toN2KValue(value, resolution, bits) {
+    const nullValues = {
+      8: 0xFF,
+      16: 0xFFFF,
+      32: 0xFFFFFFFF
+    };
+    
+    if (value === null || value === undefined || isNaN(value)) {
+      return nullValues[bits];
+    }
+    
+    const converted = Math.round(value / resolution);
+    const max = Math.pow(2, bits) - 1;
+    
+    return Math.max(0, Math.min(max, converted));
+  }
+  
+  function buildRapidUpdate(instance, data) {
+    // Must have at least engine speed to send
+    if (data.revolutions === undefined || data.revolutions === null) {
+      return null;
+    }
+    
+    // Round RPM to nearest 10 for debouncing
+    const roundedRPM = roundRPMToNearest10(data.revolutions);
+    
+    return {
+      prio: 3,
+      pgn: 127488,
+      dst: 255,
+      fields: {
+        'Engine Instance': instance,
+        // Convert rounded RPM to 0.25 RPM resolution units
+        'Engine Speed': roundedRPM !== null ? Math.round(roundedRPM * 4) : 0xFFFF,
+        'Engine Boost Pressure': toN2KValue(data.boostPressure, 100, 16),
+        'Engine Tilt/Trim': toN2KValue(data.tiltTrim, 1, 8)
+      }
+    };
+  }
+  
+  function buildDynamicUpdate(instance, data) {
+    // Should have at least one dynamic parameter to send
+    const hasDynamicData = 
+      data.oilPressure !== undefined ||
+      data.oilTemperature !== undefined ||
+      data.temperature !== undefined ||
+      data.alternatorVoltage !== undefined;
+    
+    if (!hasDynamicData) {
+      return null;
+    }
+    
+    // Convert fuel rate from m³/s to 0.1 L/h
+    let fuelRateN2K = 0xFFFF;
+    if (data.fuelRate !== undefined && data.fuelRate !== null) {
+      // 1 m³/s = 3,600,000 L/h
+      // Resolution is 0.1 L/h, so multiply by 36,000,000
+      fuelRateN2K = Math.round(data.fuelRate * 36000000);
+    }
+    
+    return {
+      prio: 6,
+      pgn: 127489,
+      dst: 255,
+      fields: {
+        'Engine Instance': instance,
+        'Oil Pressure': toN2KValue(data.oilPressure, 100, 16),
+        'Oil Temperature': toN2KValue(data.oilTemperature, 0.1, 16),
+        'Engine Coolant Temperature': toN2KValue(data.temperature, 0.1, 16),
+        'Alternator Potential': toN2KValue(data.alternatorVoltage, 0.01, 16),
+        'Fuel Rate': fuelRateN2K,
+        'Total Engine hours': toN2KValue(data.runTime, 1, 32),
+        'Engine Coolant Pressure': toN2KValue(data.coolantPressure, 100, 16),
+        'Fuel Pressure': toN2KValue(data.fuelPressure, 1000, 16),
+        'Discrete Status 1': buildDiscreteStatus1(data),
+        'Discrete Status 2': buildDiscreteStatus2(data),
+        'Percent Engine Load': toN2KValue(
+          data.engineLoad !== undefined ? data.engineLoad * 100 : undefined,
+          1,
+          8
+        ),
+        'Percent Engine Torque': toN2KValue(
+          data.engineTorque !== undefined ? data.engineTorque * 100 : undefined,
+          1,
+          8
+        )
+      }
+    };
+  }
+  
+  function buildDiscreteStatus1(data) {
+    // Default all to "not available" (0b11)
+    let status = 0xFFFF;
+    
+    // This would need to be populated from Signal K alarm/notification data
+    // For now, return all "not available"
+    // TODO: Map from notifications.propulsion.*.* paths
+    
+    return status;
+  }
+  
+  function buildDiscreteStatus2(data) {
+    // Default all to "not available"
+    let status = 0xFFFF;
+    
+    // This would need to be populated from Signal K alarm/notification data
+    // TODO: Map from notifications.propulsion.*.* paths
+    
+    return status;
+  }
+};
