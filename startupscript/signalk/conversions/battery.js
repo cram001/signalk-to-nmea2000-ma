@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-
+ 
 SRC="/data/custom/signalk/conversions"
 
 DST1="/usr/lib/node_modules/signalk-server/node_modules/signalk-to-nmea2000/conversions"
