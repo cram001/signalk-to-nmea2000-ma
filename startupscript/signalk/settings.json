@@ -1,0 +1,57 @@
+{
+  "pipedProviders": [
+    {
+      "pipeElements": [
+        {
+          "type": "providers/simple",
+          "options": {
+            "logging": false,
+            "type": "NMEA2000",
+            "subOptions": {
+              "type": "w2k-1-n2k-ascii-canboatjs",
+              "host": "192.168.88.246",
+              "port": "60003",
+              "useCamelCompat": false
+            }
+          }
+        }
+      ],
+      "id": "actisense",
+      "enabled": true
+    },
+    {
+      "pipeElements": [
+        {
+          "type": "providers/simple",
+          "options": {
+            "type": "NMEA0183",
+            "subOptions": {
+              "type": "tcp",
+              "host": "192.168.88.244",
+              "port": 10110,
+              "validateChecksum": true
+            }
+          }
+        }
+      ],
+      "id": "Zeus S 9 (121358171)",
+      "enabled": false
+    }
+  ],
+  "interfaces": {},
+  "resourcesApi": {
+    "defaultProviders": {
+      "routes": "resources-provider",
+      "waypoints": "resources-provider",
+      "regions": "resources-provider",
+      "notes": "resources-provider",
+      "charts": "resources-provider"
+    }
+  },
+  "courseApi": {
+    "apiOnly": false
+  },
+  "security": {
+    "strategy": "./tokensecurity"
+  }
+}
