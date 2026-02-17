@@ -1,0 +1,30 @@
+#!/bin/sh
+
+echo "Restoring SignalK customizations..."
+
+# ---- PATHS ----
+SRC=/data/custom
+SK=/data/conf
+
+# Wait until SignalK is installed/mounted
+sleep 10
+
+# Backup originals once (optional)
+mkdir -p /data/backup/originals
+
+backup_if_missing () {
+    if [ ! -f "/data/backup/originals/$1.bak" ]; then
+        cp "$2" "/data/backup/originals/$1.bak"
+    fi
+}
+
+# ---- settings.json redirect fix ----
+backup_if_missing settings "$SK/signalk/settings.json"
+cp "$SRC/signalk/settings.json" "$SK/signalk/settings.json"
+
+# ---- signalk-to-nmea2000 plugin ----
+backup_if_missing conversions "$SK/signalk/node_modules/signalk-to-nmea2000/conversions.js"
+cp "$SRC/plugins/signalk-to-nmea2000/conversions.js" \
+   "$SK/signalk/node_modules/signalk-to-nmea2000/conversions.js"
+
+echo "SignalK customizations restored."
