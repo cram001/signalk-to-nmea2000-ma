@@ -78,7 +78,7 @@ module.exports = (app, plugin) => {
           `${base}.revolutions`,
           `${base}.boostPressure`,
           `${base}.drive.trimState`,
-          `${base}.oilPressure`,            // unchanged per your instruction
+          `${base}.oilPressure`,            
           `${base}.oilTemperature`,
           `${base}.alternatorVoltage`,
           `${base}.fuel.rate`,
