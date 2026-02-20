@@ -252,6 +252,31 @@ module.exports = (app, plugin) => {
   }
 }
 
+// ============================================================================= 
+  // UNIT CONVERSION REFERENCE 
+  // ============================================================================= 
+  // 
+  // Signal K → Canboatjs (canboatjs handles NMEA 2000 encoding internally) 
+  // 
+  // PGN 127488 (Rapid): 
+  // - Engine Speed: rps × 60 → rpm (then canboatjs → 0.25 RPM units) 
+  // - Boost Pressure: Pa (canboatjs → 100 Pa units) 
+  // - Tilt/Trim: ratio × 100 → % (canboatjs → 1% units) 
+  // 
+  // PGN 127489 (Dynamic): 
+  // - Oil Pressure: Pa (canboatjs → 100 Pa units) 
+  // - Oil Temperature: K (canboatjs → 0.1 K units) 
+  // - Coolant Temp: K (canboatjs → 0.1 K units) 
+  // - Alternator Voltage: V (canboatjs → 0.01 V units) 
+  // - Fuel Rate: m³/s (canboatjs → L/h → 0.1 L/h units) 
+  // - Engine Hours: seconds (both SK and NMEA use seconds) 
+  // - Coolant Pressure: Pa (canboatjs → 100 Pa units) 
+  // - Fuel Pressure: Pa (canboatjs → 1000 Pa units) 
+  // - Engine Load: ratio × 100 → % (canboatjs → 1% units) 
+  // - Engine Torque: ratio × 100 → % (canboatjs → 1% units) 
+  // 
+  // =============================================================================
+  
 ============================================================================= 
   // FIELD NAME REFERENCE (canboatjs camelCase format)   // 
   =============================================================================
