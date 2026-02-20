@@ -118,13 +118,13 @@ module.exports = (app, plugin) => {
               last.rpm = roundRPMToNearest10(rps * 60)
 
             if (present(boostPa))
-              last.boostPressure = boostPa / 100
+              last.boostPressure = boostPa
 
             if (present(trimRatio))
               last.trim = trimRatio * 100
 
             if (present(oilPa))
-              last.oilPressure = oilPa / 100
+              last.oilPressure = oilPa
 
             if (present(oilTempK))
               last.oilTemp = oilTempK
@@ -145,7 +145,7 @@ module.exports = (app, plugin) => {
               last.coolantPressure = coolPa / 100
 
             if (present(fuelPa))
-              last.fuelPressure = fuelPa / 100
+              last.fuelPressure = fuelPa
 
             if (present(loadRatio))
               last.engineLoad = loadRatio * 100
