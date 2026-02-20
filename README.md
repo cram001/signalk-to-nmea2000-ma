@@ -1,4 +1,8 @@
+19 Fe 2026:
 
+- PGNs now being sent to N2K network, however, not decoded by instruments (127488, 127489)
+- rounding RPM to nearest 10 to debounce
+- user can specify source for engine (coolant/oil) temp ... in case a onewire or other sensor is used
 
 
 # signalk-to-nmea2000 (marc edits)
