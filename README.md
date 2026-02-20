@@ -3,6 +3,8 @@
 - PGNs now being sent to N2K network, however, not decoded by instruments (127488, 127489)
 - rounding RPM to nearest 10 to debounce
 - user can specify source for engine (coolant/oil) temp ... in case a onewire or other sensor is used
+- ESP32 does not appear to be sending coolante/engine temp to SK ?
+- ESP32 is sending exhaust elbow temp to transmission temperature field
 
 
 # signalk-to-nmea2000 (marc edits)
