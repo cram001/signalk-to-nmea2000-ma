@@ -142,7 +142,7 @@ module.exports = (app, plugin) => {
               last.runTime = runTime
 
             if (present(coolPa))
-              last.coolantPressure = coolPa / 100
+              last.coolantPressure = coolPa
 
             if (present(fuelPa))
               last.fuelPressure = fuelPa
