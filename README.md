@@ -1,6 +1,5 @@
 Refs:
-Refer to canboatjs on what to send (via signalk-to-nmea2000) or review this file (Cerbo gx): /usr/lib/node_modules/signalk-server/node_modules/@canboat/canboatjs/dist/pgns.js 
-
+Refer to canboatjs on what to send (via signalk-to-nmea2000) or review this file (Cerbo gx): /usr/lib/node_modules/signalk-server/node_modules/@canboat/ts-pgns/canboat.json 
 19 Feb 2026:
 
 - PGNs now being sent to N2K network, however, not decoded by instruments (127488, 127489)
