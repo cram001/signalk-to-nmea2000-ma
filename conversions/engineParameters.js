@@ -136,7 +136,7 @@ module.exports = (app, plugin) => {
               last.altVolt = altVolt
 
             if (present(fuelM3ps))
-              last.fuelRate = fuelM3ps * 3600 * 1000
+              last.fuelRate = Math.round(fuelM3ps * 3600 * 1000 * 10) / 10
 
             if (present(runTime))
               last.runTime = runTime
@@ -148,10 +148,10 @@ module.exports = (app, plugin) => {
               last.fuelPressure = fuelPa
 
             if (present(loadRatio))
-              last.engineLoad = loadRatio * 100
+              last.engineLoad = Math.round(loadRatio * 100)
 
             if (present(torqueRatio))
-              last.engineTorque = torqueRatio * 100
+              last.engineTorque = Math.round(torqueRatio * 100)
 
             const result = []
 
