@@ -39,7 +39,7 @@ module.exports = (app, plugin) => {
             instanceId: { type: 'number' },
             engineTempPath: {
               type: 'string',
-              title: 'Signal K path for Engine Temperature (Kelvin)'
+              title: 'Signal K FULL path for Engine Temperature (Kelvin)'
             }
           }
         }
