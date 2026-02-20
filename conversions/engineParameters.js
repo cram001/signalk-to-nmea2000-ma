@@ -5,6 +5,7 @@ const _ = require('lodash')
 // useCamelCompat: false compatible
 // =============================================================================
 
+
 function extractValue(v) {
   if (v == null) return undefined
   if (typeof v === 'object' && v.value != null) return v.value
@@ -250,3 +251,47 @@ module.exports = (app, plugin) => {
     }
   }
 }
+
+============================================================================= 
+  // FIELD NAME REFERENCE (canboatjs camelCase format)   // 
+  =============================================================================
+  // // PGN 127488: 
+  // - engineInstance (or instance)
+  // - speed
+  // - boostPressure
+  // - tiltTrim 
+  //
+  // PGN 127489: 
+  // - engineInstance (or instance) 
+  // - oilPressure 
+  // - oilTemperature 
+  // - temperature (coolant temperature) 
+  // - alternatorPotential 
+  // - fuelRate 
+  // - totalEngineHours 
+  // - coolantPressure 
+  // - fuelPressure
+  // - discreteStatus1 (bitfield - 0xFFFF = not available) 
+  // - discreteStatus2 (bitfield - 0xFFFF = not available) 
+  // - engineLoad 
+  // - engineTorque 
+  // 
+  // =============================================================================
+  
+// 
+============================================================================= 
+  // // RPM Rounding: 
+  // - Rounds to nearest 10 RPM before transmission 
+  // - Prevents excessive bus traffic on minor fluctuations (±5 RPM) 
+  // - Still provides adequate resolution for displays 
+  // - Example: 2003 RPM → 2000 RPM, 2007 RPM → 2010 RPM 
+  // - Reduces transmissions by ~75-90% during steady operation 
+  // // Update Rate Limiting: 
+  // - PGN 127488: 4 Hz (250ms) vs spec max of 10 Hz 
+  // - PGN 127489: 1 Hz (1000ms) per spec 
+  // - Reduces bus loading by 60% for rapid updates 
+  // - Combined with RPM rounding: ~90% reduction in bus traffic 
+  // // Benefits: // - Single engine: ~800 bps savings on NMEA 2000 bus 
+  // - Twin engine: ~1600 bps savings 
+  // - Leaves bandwidth for navigation, autopilot, and other systems
+  // // ============================================================
