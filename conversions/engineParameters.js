@@ -274,12 +274,9 @@ module.exports = (app, plugin) => {
   // - Fuel Pressure: Pa (canboatjs → 1000 Pa units) 
   // - Engine Load: ratio × 100 → % (canboatjs → 1% units) 
   // - Engine Torque: ratio × 100 → % (canboatjs → 1% units) 
-  // 
-  // =============================================================================
-  
-============================================================================= 
+// ============================================================================= 
   // FIELD NAME REFERENCE (canboatjs camelCase format)   // 
-  =============================================================================
+  // =============================================================================
   // // PGN 127488: 
   // - engineInstance (or instance)
   // - speed
@@ -300,11 +297,7 @@ module.exports = (app, plugin) => {
   // - discreteStatus2 (bitfield - 0xFFFF = not available) 
   // - engineLoad 
   // - engineTorque 
-  // 
-  // =============================================================================
-  
-// 
-============================================================================= 
+// ============================================================================= 
   // // RPM Rounding: 
   // - Rounds to nearest 10 RPM before transmission 
   // - Prevents excessive bus traffic on minor fluctuations (±5 RPM) 
